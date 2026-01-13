@@ -15,7 +15,7 @@ click = "^8.1.0"
 loguru = "^0.7.0"
 python-dotenv = "^1.0.1"
 python-dateutil = "^2.9.0"
-curl_cffi = "^0.13.0"
+curl_cffi = "^0.14.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^25.11.0"
