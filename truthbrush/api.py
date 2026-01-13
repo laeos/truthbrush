@@ -31,6 +31,7 @@ CLIENT_ID = "9X1Fdd-pxNsAgEDNi_SfhJWi8T-vLuV2WVzKIbkTCw4"
 CLIENT_SECRET = "ozF8jzI4968oTKFkEnsBC-UbLPCdrSv0MkXGQu2o_-M"
 
 proxies = {"http": os.getenv("http_proxy"), "https": os.getenv("https_proxy")}
+impersonate = os.getenv("impersonate", "firefox")
 
 TRUTHSOCIAL_USERNAME = os.getenv("TRUTHSOCIAL_USERNAME")
 TRUTHSOCIAL_PASSWORD = os.getenv("TRUTHSOCIAL_PASSWORD")
@@ -111,7 +112,7 @@ class Api:
                 API_BASE_URL + url,
                 params=params,
                 proxies=proxies,
-                impersonate="chrome123",
+                impersonate=impersonate,
                 headers={
                     "Authorization": "Bearer " + self.auth_id,
                     "User-Agent": USER_AGENT,
@@ -142,7 +143,7 @@ class Api:
                 next_link,
                 params=params,
                 proxies=proxies,
-                impersonate="chrome123",
+                impersonate=impersonate,
                 headers={
                     "Authorization": "Bearer " + self.auth_id,
                     "User-Agent": USER_AGENT,
@@ -289,15 +290,15 @@ class Api:
 
             if not resp:
                 break
-            
+
             # Filter out empty results
             results = [value for value in resp if value]
             if not results:
                 break
-            
+
             num_results += len(results)
             params["max_id"] = results[-1]["id"]
-        
+
             yield results
 
     def trending(self, limit=10):
@@ -503,7 +504,7 @@ class Api:
                 url,
                 json=payload,
                 proxies=proxies,
-                impersonate="chrome123",
+                impersonate=impersonate,
                 headers={
                     "User-Agent": USER_AGENT,
                 },
