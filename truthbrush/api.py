@@ -22,9 +22,7 @@ logging.basicConfig(
 
 BASE_URL = "https://truthsocial.com"
 API_BASE_URL = "https://truthsocial.com/api"
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-)
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 12_2_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
 
 # Oauth client credentials, from https://truthsocial.com/packs/js/application-d77ef3e9148ad1d0624c.js
 CLIENT_ID = "9X1Fdd-pxNsAgEDNi_SfhJWi8T-vLuV2WVzKIbkTCw4"
@@ -45,11 +43,13 @@ class LoginErrorException(Exception):
 
 class GeoblockException(LoginErrorException):
     """Raised when Truth Social blocks access due to geographic restrictions"""
+
     pass
 
 
 class CFBlockException(LoginErrorException):
     """Raised when Cloudflare blocks the request"""
+
     pass
 
 
@@ -282,7 +282,9 @@ class Api:
         num_results = 0
         params = dict()
         while num_results < limit:
-            logger.info(f"Collecting posts with hashtag: {tag}, max_id: {params.get('max_id')}")
+            logger.info(
+                f"Collecting posts with hashtag: {tag}, max_id: {params.get('max_id')}"
+            )
             resp = self._get(
                 f"/v1/timelines/tag/{tag}",
                 params=params,
@@ -487,7 +489,7 @@ class Api:
 
     def get_auth_id(self, username: str, password: str) -> str:
         """Logs in to Truth account and returns the session token"""
-        url = BASE_URL + "/oauth/token"
+        url = BASE_URL + "/oauth/v2/token"
         try:
             payload = {
                 "client_id": CLIENT_ID,
@@ -526,12 +528,14 @@ class Api:
 
                 # Generic 403 error
                 logger.error(f"403 Forbidden: {response_text[:200]}")
-                raise LoginErrorException(f"Authentication forbidden (403). Response: {response_text[:200]}")
+                raise LoginErrorException(
+                    f"Authentication forbidden (403). Response: {response_text[:200]}"
+                )
 
             sess_req.raise_for_status()
         except requests.RequestsError as e:
             logger.error(f"Failed login request: {str(e)}")
-            raise LoginErrorException('Cannot authenticate to .')
+            raise LoginErrorException("Cannot authenticate to .")
 
         if not sess_req.json()["access_token"]:
             raise ValueError("Invalid truthsocial.com credentials provided!")
