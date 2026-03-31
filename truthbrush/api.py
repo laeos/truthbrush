@@ -1,5 +1,5 @@
 from time import sleep
-from typing import Any, Iterator, List, Optional
+from typing import Any, Iterator, List, Optional, Literal
 from loguru import logger
 from dateutil import parser as date_parse
 from datetime import datetime, timezone, date
@@ -51,6 +51,27 @@ class CFBlockException(LoginErrorException):
     """Raised when Cloudflare blocks the request"""
 
     pass
+
+
+def date_to_bound(dt_input: "str | datetime", bound: Literal["start", "end"]) -> int:
+    if isinstance(dt_input, str):
+        dt_input = datetime.fromisoformat(dt_input)
+        if dt_input.hour or dt_input.minute or dt_input.second or dt_input.microsecond:
+            raise ValueError(
+                "date string must not include a time component. Pass in datetime object for time-specific bounds."
+            )
+
+    if dt_input.tzinfo is None:
+        dt_input = dt_input.replace(tzinfo=timezone.utc)
+
+    if bound == "start":
+        dt = dt_input.replace(hour=0, minute=0, second=0, microsecond=0)
+        ms = int(dt.timestamp() * 1000)
+        return (ms << 16) | 0x0000
+    else:
+        dt = dt_input.replace(hour=23, minute=59, second=59, microsecond=999999)
+        ms = int(dt.timestamp() * 1000)
+        return (ms << 16) | 0xFFFF
 
 
 class Api:
@@ -224,47 +245,52 @@ class Api:
         offset: int = 0,
         min_id: str = "0",
         max_id: str = None,
+        start_date: (
+            str | datetime
+        ) = None,  # intended use is dates i.e "2026-01-01", supports datetime
+        end_date: str | datetime = None,
     ) -> Optional[dict]:
         """Search users, statuses or hashtags."""
 
         self.__check_login()
         assert query is not None and searchtype is not None
 
-        page = 0
-        while page < limit:
-            if max_id is None:
-                resp = self._get(
-                    "/v2/search",
-                    params=dict(
-                        q=query,
-                        resolve=resolve,
-                        limit=limit,
-                        type=searchtype,
-                        offset=offset,
-                        min_id=min_id,
-                    ),
-                )
+        # error handling for date and id bounds
+        if min_id != "0" and start_date is not None:
+            raise ValueError("Cannot specify both min_id and start_date")
+        if max_id is not None and end_date is not None:
+            raise ValueError("Cannot specify both max_id and end_date")
 
-            else:
-                resp = self._get(
-                    "/v2/search",
-                    params=dict(
-                        q=query,
-                        resolve=resolve,
-                        limit=limit,
-                        type=searchtype,
-                        offset=offset,
-                        min_id=min_id,
-                        max_id=max_id,
-                    ),
-                )
+        if start_date is not None:
+            min_id = str(date_to_bound(start_date, "start"))
+        if end_date is not None:
+            max_id = str(date_to_bound(end_date, "end"))
+        if max_id is not None:
+            assert min_id < max_id, "min_id must be less than max_id"
 
-            offset += 40
-            # added new not sure if helpful
+        PAGE_SIZE = 40
+        total_yielded = 0
+        while total_yielded < limit:
+            fetch_size = min(PAGE_SIZE, limit - total_yielded)
+            params = dict(
+                q=query,
+                resolve=resolve,
+                limit=fetch_size,
+                type=searchtype,
+                offset=offset,
+                min_id=min_id,
+            )
+            if max_id is not None:
+                params["max_id"] = max_id
+
+            resp = self._get("/v2/search", params=params)
+
             if not resp or all(value == [] for value in resp.values()):
                 break
 
             yield resp
+            total_yielded += sum(len(v) for v in resp.values() if isinstance(v, list))
+            offset += PAGE_SIZE
 
     def hashtag(
         self,
